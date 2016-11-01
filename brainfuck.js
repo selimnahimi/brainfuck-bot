@@ -11,8 +11,7 @@ const bot = new Discord.Client();
 const token = 'YOUR-BOT-TOKEN'; // Put your bot token here
 const trigger = 'bf!'; // How commands start
 const killDelay = 1000; // Steps before killing an infinite/long loop
-//const maxCells = 4000; // Amount of cells to work in
-//const maxInstructors = 5000; // Amount of commands the compiler can handle
+const debug = false; // Debug mode
 
 bot.on('ready', () => {
 	console.log('Bot Ready, for help type ' + trigger + 'help');
@@ -44,6 +43,8 @@ bot.on('message', message => {
 		var currDepth = 0; // Code depth, for loops (0 as no loop)
 		var searchForEndLoop = -1; // Looking for end loop for x depth (because loop returned 0)
 		
+		var start = new Date();
+		
 		for (var i = 0; i < currCode.length; i++) {
 			
 			// THE MAGIC STARTS HERE \\
@@ -70,6 +71,7 @@ bot.on('message', message => {
 				case ">":
 					if(searchForEndLoop != -1) break;
 					x++;
+					if(debug) console.log('['+i+'] right, x: ' + x);
 					break;
 				case "<":
 					if(searchForEndLoop != -1) break;
@@ -79,6 +81,7 @@ bot.on('message', message => {
 						error = "Array pointer is out of bounds";
 						break;
 					}
+					if(debug) console.log('['+i+'] left, x: ' + x);
 					break;
 				case "+":
 					if(searchForEndLoop != -1) break;
@@ -87,6 +90,7 @@ bot.on('message', message => {
 					} else {
 						cells[x]++;
 					}
+					if(debug) console.log('['+i+'] plus, cell: ' + cells[x]);
 					break;
 				case "-":
 					if(searchForEndLoop != -1) break;
@@ -94,18 +98,24 @@ bot.on('message', message => {
 						cells[x] = -1;
 					}
 					cells[x]--;
+					if(debug) console.log('['+i+'] minus, cell: ' + cells[x]);
 					break;
 				case "[":
 					if(searchForEndLoop != -1) {
 						currDepth++;
+						if(debug) console.log('['+i+'] skipping loop, depth: ' + currDepth);
 						break;
 					}
-					if(cells[x] == 0){
-						searchForEndLoop = true;
+					if(typeof cells[x] === 'undefined' || cells[x] == 0) {
+						currDepth++;
+						searchForEndLoop = currDepth;
+						if(debug) console.log('['+i+'] starting loop skipping, depth: ' + currDepth);
+						break;
 					}
 					kill = 0;
 					currDepth++;
 					depth[currDepth] = i;
+					if(debug) console.log('['+i+'] loop start, depth: ' + currDepth);
 					//y = i;
 					break;
 				case "]":
@@ -114,16 +124,21 @@ bot.on('message', message => {
 						break;
 					}
 					if(searchForEndLoop != -1) {
-						currDepth--;
 						if(currDepth == searchForEndLoop) {
 							// Found the paired bracket, close and continue
 							searchForEndLoop = -1;
+							if(debug) console.log('['+i+'] loop skipped from ' + depth[currDepth] + ' till ' + i);
+							depth[currDepth] = -1;
+							currDepth--;
 							break;
 						}
+						if(debug) console.log('['+i+'] closing loop, depth ' + currDepth);
+						currDepth--;
 						break;
 					}
 					if(typeof cells[x] !== 'undefined') {
 						if(cells[x] != 0) {
+							if(debug) console.log('['+i+'] jump to ' + depth[currDepth]);
 							i = depth[currDepth];
 							kill++;
 							if(kill >= killDelay) {
@@ -133,6 +148,7 @@ bot.on('message', message => {
 							break;
 						}
 					}
+					if(debug) console.log('['+i+'] ending loop, depth: ' + currDepth);
 					depth[currDepth] = -1;
 					currDepth--;
 					//y = -1;
@@ -147,10 +163,12 @@ bot.on('message', message => {
 						break;
 					}
 					cells[x] = inputText[read].charCodeAt();
+					if(debug) console.log('['+i+'] read: ' + cells[x]);
 					read++;
 					break;
 				case ".":
 					reply += String.fromCharCode(cells[x]);
+					if(debug) console.log('['+i+'] print: ' + String.fromCharCode(cells[x]));
 					break;
 				default:
 					if(input) {
@@ -160,12 +178,15 @@ bot.on('message', message => {
 			}
 			
 			if(error != "") {
+				if(debug) console.log('['+i+'] error (' + error + ')');
 				break;
 			}
 			
 			// THE MAGIC ENDS HERE
 			
 		}
+		
+		var end = new Date() - start;
 		
 		var outSize = reply.length-1;
 		
@@ -177,10 +198,13 @@ bot.on('message', message => {
 			outSize = 0;
 		}
 		
+		
 		if(inputCon != "") { // \n-------------------\nOutput: ' + outSize + ' byte(s)
-			message.channel.sendMessage('input: **'+inputCon+'**\n'+'```\n'+reply+'\n-------------------\nCode Length: ' + (((currCode.length)-(inputCon.length))-2) + ' byte(s)\nInput: ' + inputCon.length + ' byet(s)\nOutput: ' + outSize + ' byte(s)```');
+			message.channel.sendMessage('input: **'+inputCon+'**\n'+'```\n'+reply+'\n-------------------\nCode Length: ' + (((currCode.length)-(inputCon.length))-2) + ' byte(s)\nInput: ' + inputCon.length + ' byte(s)\nOutput: ' + outSize + ' byte(s)\nExecution time: ' + end + 'ms```');
 		} else
-			message.channel.sendMessage('```\n'+reply+'\n-------------------\nCode Length: ' + currCode.length + ' byte(s)\nOutput: ' + outSize + ' byte(s)```');
+			message.channel.sendMessage('```\n'+reply+'\n-------------------\nCode Length: ' + currCode.length + ' byte(s)\nOutput: ' + outSize + ' byte(s)\nExecution time: ' + end + 'ms```');
+		
+		if(debug) console.log("---------------------");
 	} else if(currMessage[0] == trigger+'help') {
 		message.channel.sendMessage('To run a Brainfuck code, type **' + trigger + 'run**!');
 	}
