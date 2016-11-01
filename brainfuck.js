@@ -40,6 +40,10 @@ bot.on('message', message => {
 		var read = 0; // Current position in input text
 		var inputCon = ""; // Concatenated input string
 		var kill = 0; // Steps, to check if loop needs to be killed
+		var depth = [-1]; // Loop start points for each depth, -1 for non-existent
+		var currDepth = 0; // Code depth, for loops (0 as no loop)
+		var searchForEndLoop = -1; // Looking for end loop for x depth (because loop returned 0)
+		
 		for (var i = 0; i < currCode.length; i++) {
 			
 			// THE MAGIC STARTS HERE \\
@@ -64,9 +68,11 @@ bot.on('message', message => {
 					}
 					break;
 				case ">":
+					if(searchForEndLoop != -1) break;
 					x++;
 					break;
 				case "<":
+					if(searchForEndLoop != -1) break;
 					if(x-1 >= 0) {
 						x--;
 					} else {
@@ -75,6 +81,7 @@ bot.on('message', message => {
 					}
 					break;
 				case "+":
+					if(searchForEndLoop != -1) break;
 					if(typeof cells[x] === 'undefined') {
 						cells[x] = 1;
 					} else {
@@ -82,29 +89,42 @@ bot.on('message', message => {
 					}
 					break;
 				case "-":
+					if(searchForEndLoop != -1) break;
 					if(typeof cells[x] === 'undefined') {
 						cells[x] = -1;
-					} else {
-						cells[x]--;
 					}
+					cells[x]--;
 					break;
 				case "[":
-					if(y != -1) {
-						error = "Unexpected '[': Last loop was not closed";
+					if(searchForEndLoop != -1) {
+						currDepth++;
 						break;
 					}
+					if(cells[x] == 0){
+						searchForEndLoop = true;
+					}
 					kill = 0;
-					y = i;
+					currDepth++;
+					depth[currDepth] = i;
+					//y = i;
 					break;
 				case "]":
-					var end = false;
-					if(x == -1) {
+					if(currDepth == 0) {
 						error = "Unexpected ']': No loop was defined";
+						break;
+					}
+					if(searchForEndLoop != -1) {
+						currDepth--;
+						if(currDepth == searchForEndLoop) {
+							// Found the paired bracket, close and continue
+							searchForEndLoop = -1;
+							break;
+						}
 						break;
 					}
 					if(typeof cells[x] !== 'undefined') {
 						if(cells[x] != 0) {
-							i = y;
+							i = depth[currDepth];
 							kill++;
 							if(kill >= killDelay) {
 								error = "Loop timed out (probably infinite loop?)";
@@ -113,8 +133,10 @@ bot.on('message', message => {
 							break;
 						}
 					}
-					y = -1;
-					z = -1;
+					depth[currDepth] = -1;
+					currDepth--;
+					//y = -1;
+					//z = -1;
 					break;
 				case ",":
 					if(!inputOver) {
@@ -145,14 +167,20 @@ bot.on('message', message => {
 			
 		}
 		
+		var outSize = reply.length-1;
+		
 		if(error != "") {
 			reply = "Error at " + i + ": " + error;
-		} else if(reply == '') reply = 'no output';
+			outSize = 0;
+		} else if(reply == '') {
+			reply = 'no output';
+			outSize = 0;
+		}
 		
-		if(inputCon != "")
-			message.channel.sendMessage('input: **'+inputCon+'**\n'+'```'+reply+'```');
-		else
-			message.channel.sendMessage('```'+reply+'```');
+		if(inputCon != "") { // \n-------------------\nOutput: ' + outSize + ' byte(s)
+			message.channel.sendMessage('input: **'+inputCon+'**\n'+'```\n'+reply+'\n-------------------\nCode Length: ' + (((currCode.length)-(inputCon.length))-2) + ' byte(s)\nInput: ' + inputCon.length + ' byet(s)\nOutput: ' + outSize + ' byte(s)```');
+		} else
+			message.channel.sendMessage('```\n'+reply+'\n-------------------\nCode Length: ' + currCode.length + ' byte(s)\nOutput: ' + outSize + ' byte(s)```');
 	} else if(currMessage[0] == trigger+'help') {
 		message.channel.sendMessage('To run a Brainfuck code, type **' + trigger + 'run**!');
 	}
