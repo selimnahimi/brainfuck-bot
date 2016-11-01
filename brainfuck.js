@@ -8,9 +8,9 @@ const Discord = require('discord.js'); // discord.js
 const bot = new Discord.Client();
 
 //--Constants
-const token = 'YOUR-BOT-TOKEN-HERE'; // Put your bot token here
+const token = 'YOUR-BOT-TOKEN'; // Put your bot token here
 const trigger = 'bf!'; // How commands start
-const killDelay = 5; // Seconds before killing an infinite/long loop
+const killDelay = 1000; // Steps before killing an infinite/long loop
 //const maxCells = 4000; // Amount of cells to work in
 //const maxInstructors = 5000; // Amount of commands the compiler can handle
 
@@ -35,11 +35,11 @@ bot.on('message', message => {
 		var z = -1; // Cell number of the loop value to read from
 		var error = ""; // If any error occurs, send it here
 		var input = false; var inputOver = false; // is an input currently being read?
-		var iStart = -1; // Start point of the input (in string)
 		var b = 0; // Input length
 		var inputText = [""];
 		var read = 0; // Current position in input text
-		var inputCon = "";
+		var inputCon = ""; // Concatenated input string
+		var kill = 0; // Steps, to check if loop needs to be killed
 		for (var i = 0; i < currCode.length; i++) {
 			
 			// THE MAGIC STARTS HERE \\
@@ -49,31 +49,24 @@ bot.on('message', message => {
 				case '"':
 					if(!input) {
 						if(!inputOver) {
-							console.log("input start");
 							input = true;
-							iStart = i;
 						} else {
 							error = "Input was already defined";
 							break;
 						}
 					} else {
-						console.log("input end");
 						inputCon = "";
 						for(var l = 0; l < inputText.length; l++) {
 							inputCon += inputText[l];
 						}
-						console.log("input: " + inputCon);
 						input = false;
 						inputOver = true;
-						iStart = -1;
 					}
 					break;
 				case ">":
-					console.log("right");
 					x++;
 					break;
 				case "<":
-					console.log("left");
 					if(x-1 >= 0) {
 						x--;
 					} else {
@@ -82,7 +75,6 @@ bot.on('message', message => {
 					}
 					break;
 				case "+":
-					console.log("plus");
 					if(typeof cells[x] === 'undefined') {
 						cells[x] = 1;
 					} else {
@@ -90,7 +82,6 @@ bot.on('message', message => {
 					}
 					break;
 				case "-":
-					console.log("minus");
 					if(typeof cells[x] === 'undefined') {
 						cells[x] = -1;
 					} else {
@@ -98,11 +89,11 @@ bot.on('message', message => {
 					}
 					break;
 				case "[":
-					console.log("begin");
 					if(y != -1) {
 						error = "Unexpected '[': Last loop was not closed";
 						break;
 					}
+					kill = 0;
 					y = i;
 					break;
 				case "]":
@@ -114,13 +105,16 @@ bot.on('message', message => {
 					if(typeof cells[x] !== 'undefined') {
 						if(cells[x] != 0) {
 							i = y;
-							console.log("repeat " + y);
+							kill++;
+							if(kill >= killDelay) {
+								error = "Loop timed out (probably infinite loop?)";
+								break;
+							}
 							break;
 						}
 					}
 					y = -1;
 					z = -1;
-					console.log("end");
 					break;
 				case ",":
 					if(!inputOver) {
@@ -131,11 +125,9 @@ bot.on('message', message => {
 						break;
 					}
 					cells[x] = inputText[read].charCodeAt();
-					console.log("read " + cells[x]);
 					read++;
 					break;
 				case ".":
-					console.log("print");
 					reply += String.fromCharCode(cells[x]);
 					break;
 				default:
@@ -145,16 +137,18 @@ bot.on('message', message => {
 					}
 			}
 			
+			if(error != "") {
+				break;
+			}
+			
 			// THE MAGIC ENDS HERE
 			
 		}
-		console.log("-------------------\nPROGRAM END, RESULT:\n-------------------")
 		
 		if(error != "") {
 			reply = "Error at " + i + ": " + error;
 		} else if(reply == '') reply = 'no output';
 		
-		console.log(reply);
 		if(inputCon != "")
 			message.channel.sendMessage('input: **'+inputCon+'**\n'+'```'+reply+'```');
 		else

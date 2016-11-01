@@ -11,10 +11,16 @@
 * **bf!help** - useless help
 * **bf!run "input"code** - execute code
 
-(**Note** that the code works without giving any input.)
+(**Note** that the code works too without any input.)
 
 Examples:
 * bf!run ++++++++++[>+++++++>++++++++++>+++>+<<<<-]>++.>+.+++++++..+++.>++.<<+++++++++++++++.>.+++.------.--------.>+.>.
 	* Output: **Hello World!**
 * bf!run "Hello World!">,[>,]<[<]>.[>.]
 	* Output: **Hello World!**
+* bf!run "a"you can+++write anything[-]anywhere>in,the.code
+	* Output: **a**
+
+#### You must set your bot token inside the script before running it!
+
+To run the bot, execute it: **node brainfuck.js**
